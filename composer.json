@@ -1,0 +1,29 @@
+{
+    "name": "r3f/sitemap-generator",
+    "description": "This package generate sitemaps using array with groups of urls from config file and content in every pages.",
+    "require": {
+        "php": ">=7.2",
+        "GuzzleHttp\\Psr7\\Uri": "*"
+    },
+    "license": "BSD",
+    "authors": [
+        {
+            "name": "Radoslav R. Radkov",
+            "email": "radoslav.r.radkov@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "R3F\\SitemapGenerator\\": "src"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "R3F\\SitemapGenerator\\GeneratorProvider"
+            ]
+        }
+    }
+}

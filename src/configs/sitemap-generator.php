@@ -37,7 +37,7 @@ return [
 
             'urlsGroups' => [ // group by category
 
-                "page" => app_routes(),
+                "pages" => app_routes(),
 
             ],
 
@@ -61,7 +61,7 @@ function app_routes(): array
     foreach($collection as $routesGroup) {
         if(isset($routesGroup['GET']))
             foreach($routesGroup['GET'] as $routePath) {
-                $routes[] = new Uri(env('APP_URL') . $routePath);
+                $routes[] = new Uri(url($routePath));
             }
 
         break;

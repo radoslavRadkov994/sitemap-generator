@@ -6,11 +6,15 @@ namespace R3F\SitemapGenerator;
 
 class Generator
 {
+    /**
+     * Generate sitemaps xml
+     */
     public static function generate() {
-        $config = config('sitemap-generator');
+        $sitemapConfig = config('sitemap-generator');
 
-        foreach ($config['groups'] as $sitemapGroup) {
-            Sitemap::create($sitemapGroup)
+        // loop groups by project
+        foreach ($sitemapConfig as $projectGroup) {
+            SitemapRequest::create($projectGroup)
                 ->checkResponses()
                 ->write();
         }

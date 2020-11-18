@@ -7,63 +7,126 @@ namespace R3F\SitemapGenerator;
 use GuzzleHttp\Psr7\Uri;
 use phpDocumentor\Reflection\Types\Object_;
 
-class Sitemap
+class SitemapRequest
 {
     protected $group;
 
     public function __construct($group) {
         $this->group = $group;
         $this->urlsGroups = $group['urlsGroups'];
-        $this->path = $this->public_path();
+        $this->storechPath = $this->public_path();
         $this->fileName = $this->fileName();
         $this->parameters = $group['parameters'];
     }
 
+    /**
+     * Create new sitemap request
+     *
+     * @param string see config/sitemap-generator.php
+     *
+     * @return SitemapRequest
+     */
     public static function create($group) {
         return new static($group);
     }
 
-    protected function public_path() {
-        return public_path($this->group['path']);
-    }
-
-    protected function fileName() {
-        return $this->group['name'] ?? 'sitemap.xml';
-    }
-
+    /**
+     * Check urls responses
+     *
+     * @return $this
+     */
     public function checkResponses() {
+        // set ini to not fail request
         $this->setIni();
 
+        // loop as category groups
         foreach ($this->urlsGroups as $urlsGroupKey => $urlsGroup) {
+            // loop all urls in groups
             foreach ($urlsGroup as $urlKey => $url) {
                 $this->urlsGroups[$urlsGroupKey][$urlKey] = $this->getSitemapParameters($url, $this->parameters);
             }
 
+            // sort current group
             sort($this->urlsGroups[$urlsGroupKey]);
+            // and remove results with same values
             $this->urlsGroups[$urlsGroupKey] = collect($this->urlsGroups[$urlsGroupKey])->unique('url');
         }
 
         return $this;
     }
 
+    /**
+     * Get all parameters from Uri
+     *
+     * @param $url
+     * @param $getParams
+     *
+     * @return UriParameters
+     */
+    protected function getSitemapParameters($url, $getParams) {
+        return UriParameters::create($url, $getParams);
+    }
+
+    /**
+     * Write checked content
+     */
     public function write() {
-        $this->createFolder();
         $this->create_sitemap();
     }
 
-    protected function create_sitemap() {
-        $createdSitemaps = [
+    /**
+     * Create folder
+     */
+    protected function createFolder($newPath = null) {
+        $array = explode('/', ($newPath ?? $this->storechPath));
 
+        $path = array_shift($array);
+
+        do {
+            if(!file_exists($path)) {
+                mkdir($path, 0777);
+            }
+
+            $segment = array_shift($array);
+            $path .= '/' . $segment;
+        } while ($segment);
+    }
+
+    /**
+     * Create sitemap
+     */
+    protected function create_sitemap() {
+        // list of all created sitemaps in this request
+        $createdSitemaps = [
+            // ...
         ];
 
+        // loop groups and render sitemap content
         foreach ($this->urlsGroups as $groupName => $urls) {
-            $sitemapContent = view('SitemapGenerator::sitemap')
-                ->with(['tags' => $urls])
-                ->render();
+            $items = (array)$urls;
+            $items = reset($items);
+            $urlsArr = array_chunk($items, 1, true);
 
-            $createdSitemaps[] = $this->generateFile($groupName, $sitemapContent);
+            foreach ($urlsArr as $key => $urls) {
+                $sitemapContent = view('SitemapGenerator::sitemap')
+                    ->with(['tags' => $urls])
+                    ->render();
+
+                // save content in file
+                $generatedFile = $this->generateFile($groupName, $sitemapContent, $key+1);
+                $createdSitemaps[$groupName][] = $this->getSitemapParameters($generatedFile, []);
+            }
+
+            if(count($createdSitemaps[$groupName]) > 0) {
+                $sitemapContent = $sitemapContent = view('SitemapGenerator::sitemap')
+                    ->with(['tags' => $createdSitemaps[$groupName]])
+                    ->render();
+
+                $createdSitemaps[$groupName] = $this->generateFile($groupName, $sitemapContent);
+            }
         }
 
+        // if created sitemaps is more that one group them
         if(count($createdSitemaps) > 1) {
             foreach ($createdSitemaps as $key => $createdSitemap) {
                 $createdSitemaps[$key] = UriParameters::create(new Uri($createdSitemap));
@@ -73,14 +136,27 @@ class Sitemap
                 ->with(['tags' => $createdSitemaps])
                 ->render();
 
+            // save content in file
             $mainSitemapAddress = $this->generateFile(null, $sitemapContent);
         } else {
             $mainSitemapAddress = reset($createdSitemaps);
         }
 
+        // after complete sent new files to search engines
         $this->send_to_searchEngines($mainSitemapAddress);
     }
 
+    // get public path of folder or file
+    protected function public_path() {
+        return public_path($this->group['path']);
+    }
+
+    // create xml file name
+    protected function fileName() {
+        return $this->group['name'] ?? 'sitemap.xml';
+    }
+
+    // sent sitemap url top search engines
     protected function send_to_searchEngines($sitemapUrl) {
         /*
         * Ping Script Sitemap
@@ -116,25 +192,22 @@ class Sitemap
 //            $returnCode = myCurl($url);
     }
 
-    public function generateFile($groupName, $content) {
-        $newPath = ($this->path . (($groupName) ? $groupName . '-' : '') . $this->fileName);
+    public function generateFile($groupName, $content, $currentPage = null) {
+        $newPath = $this->storechPath . (($groupName) ? $groupName . '/' : '');
+
+        $fileName = pathinfo($this->fileName);
+
+        if($currentPage != null) {
+            $fileName['filename'] .= '-' . $currentPage;
+            $newPath .= 'pages/';
+        }
+
+        $this->createFolder($newPath);
+        $newPath .= $groupName . '-' . $fileName['filename'] . '.' . $fileName['extension'];
 
         $this->create_new_sitemap($newPath, $content);
 
-        return env('APP_URL') . (str_replace(public_path() . '\\', '', $newPath));
-    }
-
-    protected function createFolder() {
-        $array = explode('/', $this->path);
-        $path = array_shift($array);
-
-        foreach ($array as $value) {
-            $path .= $value . '/';
-
-            if(!file_exists($path)) {
-                mkdir($path, 0777);
-            }
-        }
+        return url(str_replace(public_path() . '\\', '', $newPath));
     }
 
     protected function create_new_sitemap($newPath, $content) {
@@ -150,14 +223,10 @@ class Sitemap
         $oldPath = ($pathAndFileName . '-old-' . date('D-d-M-Y h-s') . '.' . $extension);
 
         if (file_exists($newPath)) {
-            chmod($this->path, 0777);
+            chmod($this->storechPath, 0777);
             chmod($newPath, 0777);
             rename($newPath, $oldPath);
         }
-    }
-
-    protected function getSitemapParameters($url, $getParams) {
-        return UriParameters::create($url, $getParams);
     }
 
     protected function setIni() {

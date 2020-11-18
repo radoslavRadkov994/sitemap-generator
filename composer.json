@@ -3,7 +3,7 @@
     "description": "This package generate sitemaps using array with groups of urls from config file and content in every pages.",
     "require": {
         "php": ">=7.2",
-        "GuzzleHttp\\Psr7\\Uri": "*"
+        "GuzzleHttp\\Psr7\\Uri": "=1.7.0"
     },
     "license": "BSD",
     "authors": [

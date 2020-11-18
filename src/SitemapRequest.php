@@ -83,7 +83,7 @@ class SitemapRequest
         $path = array_shift($array);
 
         do {
-            if(!file_exists($path)) {
+            if($path && !file_exists($path)) {
                 mkdir($path, 0777);
             }
 
@@ -195,6 +195,8 @@ class SitemapRequest
     public function generateFile($groupName, $content, $currentPage = null) {
         $newPath = $this->storechPath . (($groupName) ? $groupName . '/' : '');
 
+
+
         $fileName = pathinfo($this->fileName);
 
         if($currentPage != null) {
@@ -207,7 +209,7 @@ class SitemapRequest
 
         $this->create_new_sitemap($newPath, $content);
 
-        return url(str_replace(public_path() . '\\', '', $newPath));
+        return url(str_replace(public_path(), '', $newPath));
     }
 
     protected function create_new_sitemap($newPath, $content) {
@@ -219,8 +221,9 @@ class SitemapRequest
     }
 
     protected function create_old_sitemap($newPath) {
-        list($pathAndFileName, $extension) = explode('.', $newPath);
-        $oldPath = ($pathAndFileName . '-old-' . date('D-d-M-Y h-s') . '.' . $extension);
+        $path_parts = pathinfo($newPath);
+        $path_parts['filename'] .= '-old-' . date('D-d-M-Y h-s');
+        $oldPath = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.' . $path_parts['extension'];
 
         if (file_exists($newPath)) {
             chmod($this->storechPath, 0777);
